@@ -37,7 +37,7 @@ run().catch(console.dir);
 
 const PostCollection = client.db("DevForum").collection("posts");
 const announcementCollection = client.db("DevForum").collection("announce");
-//Get all post data
+const userCollection = client.db("DevForum").collection("users");
 
 // app.get("/posts", async (req, res) => {
 //   const result = await PostCollection.find().toArray();
@@ -53,16 +53,16 @@ const announcementCollection = client.db("DevForum").collection("announce");
 //   console.log(result)
 // });
 
-app.get('/post/:id',async(req,res)=>{
-    const id=req.params.id
-    console.log(id)
-    const query={_id:new ObjectId(id)}
-    const result=await PostCollection.findOne(query)
-   
-    res.send(result)
-})
+app.get("/post/:id", async (req, res) => {
+  const id = req.params.id;
+  console.log(id);
+  const query = { _id: new ObjectId(id) };
+  const result = await PostCollection.findOne(query);
 
-app.patch('/comment/:id', async (req, res) => {
+  res.send(result);
+});
+
+app.patch("/comment/:id", async (req, res) => {
   const id = req.params.id;
   const comment = req.body;
 
@@ -71,47 +71,32 @@ app.patch('/comment/:id', async (req, res) => {
       { _id: new ObjectId(id) },
       {
         $push: { comments: comment },
-        $inc: { commentsCount: 1 }
+        $inc: { commentsCount: 1 },
       }
     );
-res.send(result)
-    
+    res.send(result);
   } catch (error) {
-    console.error('Error updating comment:', error);
-    res.status(500).send({ success: false, error: 'Internal Server Error' });
+    console.error("Error updating comment:", error);
+    res.status(500).send({ success: false, error: "Internal Server Error" });
   }
 });
 
+//increment and decrement
 
-//increment and decrement 
 
-// app.post('/votecount/:id', async (req, res) => {
-//   const id = req.params.id;  // Extract post ID from the URL parameter
-//   const { vote } = req.body; // Destructure the vote ('up' or 'down') from the request body
-  
-//   // Log the received data (useful for debugging)
-//   console.log('id and vote', id, vote);
 
-//   // MongoDB query to find the post by ID
-//   const query = { _id: new ObjectId(id) };
+app.post('/addpost',async(req,res)=>{
+  const postdata=req.body
+  console.log(postdata)
+  const result=await PostCollection.insertOne(postdata)
+  res.send(result)
+})
 
-//   // Conditional logic for vote increment/decrement
-//   const updateDoc =
-//     vote === 'up'
-//       ? { $inc: { upVotes: 1, downVotes: -1 } }  // Increment upVotes and decrement downVotes
-//       : { $inc: { downVotes: 1, upVotes: -1 } }; // Increment downVotes and decrement upVotes
 
-//   try {
-//     // Update the post document in the database
-//     const result = await PostCollection.updateOne(query, updateDoc);
-    
-//     // Send the result of the update operation back to the client
-//     res.send(result);
-//   } catch (error) {
-//     console.error('Error updating votes:', error);
-//     res.status(500).send({ success: false, error: 'Internal Server Error' });
-//   }
-// });
+
+
+
+
 app.get("/posts", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 0;
@@ -122,12 +107,12 @@ app.get("/posts", async (req, res) => {
       const posts = await PostCollection.aggregate([
         {
           $addFields: {
-            voteDifference: { $subtract: ["$upVotes", "$downVotes"] }
-          }
+            voteDifference: { $subtract: ["$upVotes", "$downVotes"] },
+          },
         },
         { $sort: { voteDifference: -1 } },
         { $skip: page * limit },
-        { $limit: limit }
+        { $limit: limit },
       ]).toArray();
       res.send(posts);
     } else {
@@ -144,21 +129,23 @@ app.get("/posts", async (req, res) => {
   }
 });
 
-app.get('/postCount',async(req,res)=>{
-  const count=await PostCollection.estimatedDocumentCount()
-  res.send(count)
-})
+app.get("/postCount", async (req, res) => {
+  const count = await PostCollection.estimatedDocumentCount();
+  res.send(count);
+});
 
 // Express route example
 app.get("/posts", async (req, res) => {
   const page = parseInt(req.query.page);
   const limit = parseInt(req.query.limit);
-  const posts = await PostCollection.find().skip(page * limit).limit(limit).toArray();
+  const posts = await PostCollection.find()
+    .skip(page * limit)
+    .limit(limit)
+    .toArray();
   res.send(posts);
 });
 
-
-app.get('/announcement',async(req, res) => {
+app.get("/announcement", async (req, res) => {
   try {
     const result = await announcementCollection.find().toArray();
     res.send(result);
@@ -167,6 +154,57 @@ app.get('/announcement',async(req, res) => {
     res.status(500).send({ message: "Internal server error" });
   }
 });
+
+//new user
+
+app.put("/user", async (req, res) => {
+  const userdata = req.body;
+console.log(userdata)
+  if(!userdata.email) return
+  const email = userdata?.email;
+  
+  const query ={email};
+  const isexist = await userCollection.findOne(query);
+
+  if(!isexist){
+     const result=await userCollection.insertOne(userdata)
+     res.send(result)
+  }
+});
+
+
+//user find
+
+app.get('/users/:email',async(req,res)=>{
+const email=req.params.email
+console.log('dd'  ,email)
+ 
+  const query={email}
+  const result=await userCollection.findOne(query)
+  res.send(result)
+ 
+})
+
+
+app.get('/myPost/:email',async(req,res)=>{
+const email=req.params.email
+console.log('mypost' ,email)
+ 
+ const query = { 'author.email': email };
+  const result=await PostCollection.find(query).toArray()
+  res.send(result)
+  console.log('mygetdata',{result})
+  
+})
+
+app.delete("/deletepost/:id",async(req,res)=>{
+  const {id}=req.params
+console.log("deleteid",id)
+const query={_id:new ObjectId(id)}
+ const result = await PostCollection.deleteOne(query);
+res.send({result})
+})
+
 
 app.listen(port, () => {
   console.log(`dev server is running port:${port}`);
