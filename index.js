@@ -93,41 +93,60 @@ app.post('/addpost',async(req,res)=>{
 })
 
 
+app.get('/posts', async (req, res) => {
+  const { q, tag } = req.query;
 
-
-
-
-app.get("/posts", async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 0;
-    const limit = parseInt(req.query.limit) || 5;
-    const sort = req.query.sort || "newest";
+    const search = q ? { title: { $regex: q, $options: 'i' } } : {};
+    const tagFilter = tag && tag !== 'all' ? { tag } : {};
 
-    if (sort === "popular") {
-      const posts = await PostCollection.aggregate([
-        {
-          $addFields: {
-            voteDifference: { $subtract: ["$upVotes", "$downVotes"] },
-          },
-        },
-        { $sort: { voteDifference: -1 } },
-        { $skip: page * limit },
-        { $limit: limit },
-      ]).toArray();
-      res.send(posts);
-    } else {
-      const posts = await PostCollection.find({})
-        .sort({ createdAt: -1 })
-        .skip(page * limit)
-        .limit(limit)
-        .toArray();
-      res.send(posts);
-    }
+    const posts = await PostCollection
+      .find({ ...search, ...tagFilter })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send({ posts }); // always sends { posts: [...] }
   } catch (err) {
-    console.error("Error fetching posts:", err);
-    res.status(500).send({ error: "Internal Server Error" });
+    console.error(err);
+    res.status(500).send({ error: err.message });
   }
 });
+
+
+
+
+
+// app.get("/posts", async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 0;
+//     const limit = parseInt(req.query.limit) || 5;
+//     const sort = req.query.sort || "newest";
+
+//     if (sort === "popular") {
+//       const posts = await PostCollection.aggregate([
+//         {
+//           $addFields: {
+//             voteDifference: { $subtract: ["$upVotes", "$downVotes"] },
+//           },
+//         },
+//         { $sort: { voteDifference: -1 } },
+//         { $skip: page * limit },
+//         { $limit: limit },
+//       ]).toArray();
+//       res.send(posts);
+//     } else {
+//       const posts = await PostCollection.find({})
+//         .sort({ createdAt: -1 })
+//         .skip(page * limit)
+//         .limit(limit)
+//         .toArray();
+//       res.send(posts);
+//     }
+//   } catch (err) {
+//     console.error("Error fetching posts:", err);
+//     res.status(500).send({ error: "Internal Server Error" });
+//   }
+// });
 
 app.get("/postCount", async (req, res) => {
   const count = await PostCollection.estimatedDocumentCount();
@@ -135,15 +154,7 @@ app.get("/postCount", async (req, res) => {
 });
 
 // Express route example
-app.get("/posts", async (req, res) => {
-  const page = parseInt(req.query.page);
-  const limit = parseInt(req.query.limit);
-  const posts = await PostCollection.find()
-    .skip(page * limit)
-    .limit(limit)
-    .toArray();
-  res.send(posts);
-});
+
 
 app.get("/announcement", async (req, res) => {
   try {
@@ -154,6 +165,16 @@ app.get("/announcement", async (req, res) => {
     res.status(500).send({ message: "Internal server error" });
   }
 });
+
+//all user
+
+app.get("/allUsers",async(req,res)=>{
+  const result=await userCollection.find().toArray()
+  res.send(result)
+})
+
+
+
 
 //new user
 
@@ -177,7 +198,7 @@ console.log(userdata)
 
 app.get('/users/:email',async(req,res)=>{
 const email=req.params.email
-console.log('dd'  ,email)
+
  
   const query={email}
   const result=await userCollection.findOne(query)
@@ -186,24 +207,44 @@ console.log('dd'  ,email)
 })
 
 
+
+
+
+
+
 app.get('/myPost/:email',async(req,res)=>{
 const email=req.params.email
-console.log('mypost' ,email)
+
  
  const query = { 'author.email': email };
   const result=await PostCollection.find(query).toArray()
   res.send(result)
-  console.log('mygetdata',{result})
+ 
   
 })
 
 app.delete("/deletepost/:id",async(req,res)=>{
   const {id}=req.params
-console.log("deleteid",id)
+
 const query={_id:new ObjectId(id)}
  const result = await PostCollection.deleteOne(query);
 res.send({result})
 })
+
+//Make Admin
+
+app.patch("/makeadmin/:id",async(req,res)=>{
+  const {id}=req.params
+
+  const query={_id:new ObjectId(id)}
+  const updateDoc = {
+    $set: { role: 'admin' }
+  };
+  const result=await userCollection.updateOne(query,updateDoc)
+  res.send({result})
+})
+
+
 
 
 app.listen(port, () => {
