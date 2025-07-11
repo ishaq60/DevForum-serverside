@@ -94,23 +94,35 @@ app.post('/addpost',async(req,res)=>{
 
 
 app.get('/posts', async (req, res) => {
-  const { q, tag } = req.query;
+  const { q, tag, page,limit } = req.query;
+  console.log(page)
 
   try {
     const search = q ? { title: { $regex: q, $options: 'i' } } : {};
     const tagFilter = tag && tag !== 'all' ? { tag } : {};
 
+    const limitNum = parseInt(limit, 10);
+    const pageNum = parseInt(page, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count for pagination
+    const totalCount = await PostCollection.countDocuments({ ...search, ...tagFilter });
+
+    // Fetch posts for the current page
     const posts = await PostCollection
       .find({ ...search, ...tagFilter })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
       .toArray();
 
-    res.send({ posts }); // always sends { posts: [...] }
+    res.send({ posts, count: totalCount });
   } catch (err) {
     console.error(err);
     res.status(500).send({ error: err.message });
   }
 });
+
 
 
 
