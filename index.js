@@ -1,4 +1,9 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
+require("dotenv").config(); // ✅ Load .env FIRST!
+
+const Stripe = require("stripe");
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const express = require("express");
 
 const cors = require("cors");
@@ -39,19 +44,7 @@ const PostCollection = client.db("DevForum").collection("posts");
 const announcementCollection = client.db("DevForum").collection("announce");
 const userCollection = client.db("DevForum").collection("users");
 
-// app.get("/posts", async (req, res) => {
-//   const result = await PostCollection.find().toArray();
-//   res.send(result);
-// });
 
-// app.get("/post/:id", async (req, res) => {
-//   const id = req.params.id;
-//   console.log(id)
-//   const query ={_id:new ObjectId(id)};
-//   const result = await PostCollection.findOne(query);
-//   res.send(result)
-//   console.log(result)
-// });
 
 app.get("/post/:id", async (req, res) => {
   const id = req.params.id;
@@ -128,42 +121,20 @@ app.get('/posts', async (req, res) => {
 
 
 
-// app.get("/posts", async (req, res) => {
-//   try {
-//     const page = parseInt(req.query.page) || 0;
-//     const limit = parseInt(req.query.limit) || 5;
-//     const sort = req.query.sort || "newest";
 
-//     if (sort === "popular") {
-//       const posts = await PostCollection.aggregate([
-//         {
-//           $addFields: {
-//             voteDifference: { $subtract: ["$upVotes", "$downVotes"] },
-//           },
-//         },
-//         { $sort: { voteDifference: -1 } },
-//         { $skip: page * limit },
-//         { $limit: limit },
-//       ]).toArray();
-//       res.send(posts);
-//     } else {
-//       const posts = await PostCollection.find({})
-//         .sort({ createdAt: -1 })
-//         .skip(page * limit)
-//         .limit(limit)
-//         .toArray();
-//       res.send(posts);
-//     }
-//   } catch (err) {
-//     console.error("Error fetching posts:", err);
-//     res.status(500).send({ error: "Internal Server Error" });
-//   }
-// });
 
 app.get("/postCount", async (req, res) => {
   const count = await PostCollection.estimatedDocumentCount();
   res.send(count);
 });
+
+//total user
+
+app.get("/totaluser",async(req,res)=>{
+  const user=await userCollection.estimatedDocumentCount();
+ res.send(user)
+})
+
 
 // Express route example
 
@@ -222,8 +193,6 @@ const email=req.params.email
 
 
 
-
-
 app.get('/myPost/:email',async(req,res)=>{
 const email=req.params.email
 
@@ -255,6 +224,78 @@ app.patch("/makeadmin/:id",async(req,res)=>{
   const result=await userCollection.updateOne(query,updateDoc)
   res.send({result})
 })
+
+
+//aggerigation finding total post and comment
+app.get("/totalspostcomment", async (req, res) => {
+  try {
+    const result = await PostCollection.aggregate([
+      {
+        $facet: {
+          totalPosts: [
+            { $count: "count" }
+          ],
+          totalComments: [
+            { $group: { _id: null, count: { $sum: "$commentsCount" } } }
+          ]
+        }
+      }
+    ]).toArray();
+
+    const totalPosts = result[0].totalPosts[0]?.count || 0;
+    const totalComments = result[0].totalComments[0]?.count || 0;
+
+    res.send({ totalPosts, totalComments });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+
+
+// Route: Create Payment Intent
+app.post("/create-payment-intent", async (req, res) => {
+  const { amount } = req.body; // amount in cents (e.g., 5000 = $50.00)
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd",
+      payment_method_types: ["card"],
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    console.error("Error creating payment intent:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+//
+app.patch('/make-gold-member/:email', async (req, res) => {
+  const { email } = req.params;
+  console.log('Upgrading subscription status for:', email);
+
+  try {
+    const query = { email };
+    const updateDoc = {
+      $set: { SubscriptionStatus: 'Gold Badge' },
+    };
+
+    const result = await userCollection.updateOne(query, updateDoc);
+
+    if (result.modifiedCount > 0) {
+      res.send({ success: true, message: 'Subscription upgraded to Gold Badge!' });
+    } else {
+      res.status(404).send({ success: false, message: 'User not found or already upgraded.' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, message: 'Server error.' });
+  }
+});
 
 
 
