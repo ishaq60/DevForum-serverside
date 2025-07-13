@@ -326,6 +326,74 @@ app.patch('/make-gold-member/:email', async (req, res) => {
 
 
 
+app.post('/votecount/:id', async (req, res) => {
+    const postId = req.params.id;
+    const { vote, user } = req.body;
+
+    try {
+      const post = await PostCollection.findOne({ _id: new ObjectId(postId) });
+      if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+
+      const prevVote = post.voters?.[user];
+      let upVotes = post.upVotes || 0;
+      let downVotes = post.downVotes || 0;
+
+      const update = {};
+
+      if (vote === 'up') {
+        if (prevVote === 'up') {
+          upVotes -= 1;
+          update[`voters.${user}`] = "";
+        } else {
+          upVotes += 1;
+          if (prevVote === 'down') downVotes -= 1;
+          update[`voters.${user}`] = 'up';
+        }
+      } else if (vote === 'down') {
+        if (prevVote === 'down') {
+          downVotes -= 1;
+          update[`voters.${user}`] = "";
+        } else {
+          downVotes += 1;
+          if (prevVote === 'up') upVotes -= 1;
+          update[`voters.${user}`] = 'down';
+        }
+      }
+
+      const updateQuery = {
+        $set: {
+          upVotes,
+          downVotes,
+        },
+      };
+
+      if (update[`voters.${user}`] === "") {
+        updateQuery.$unset = { [`voters.${user}`]: "" };
+      } else {
+        updateQuery.$set[`voters.${user}`] = update[`voters.${user}`];
+      }
+
+      await PostCollection.updateOne(
+        { _id: new ObjectId(postId) },
+        updateQuery
+      );
+
+      res.json({
+        success: true,
+        upVotes,
+        downVotes,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, message: 'Server error' });
+    }
+  });
+
+
+
+
+
+
 
 app.listen(port, () => {
   console.log(`dev server is running port:${port}`);
