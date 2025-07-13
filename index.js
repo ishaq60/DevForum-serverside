@@ -1,9 +1,13 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 require("dotenv").config(); // ✅ Load .env FIRST!
 
+
 const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const express = require("express");
 
 const cors = require("cors");
@@ -80,15 +84,38 @@ app.patch("/comment/:id", async (req, res) => {
 
 app.post('/addpost',async(req,res)=>{
   const postdata=req.body
-  console.log(postdata)
+  
   const result=await PostCollection.insertOne(postdata)
   res.send(result)
 })
 
 
+let fallbackTo = "openai"; // or other
+
+app.post("/ask-gemini", async (req, res) => {
+  const { question } = req.body;
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const result = await model.generateContent(question);
+    const answer = result.response.text();
+    res.send({ answer });
+  } catch (err) {
+    console.error(err);
+
+    // fallback to OpenAI if rate limited
+    if (fallbackTo === "openai") {
+      // use OpenAI Node SDK here
+      res.send({ answer: "Fallback: Sorry, Gemini is overloaded, please try again later!" });
+    } else {
+      res.status(500).send({ answer: "All AI services unavailable." });
+    }
+  }
+});
+
+
 app.get('/posts', async (req, res) => {
   const { q, tag, page,limit } = req.query;
-  console.log(page)
+
 
   try {
     const search = q ? { title: { $regex: q, $options: 'i' } } : {};
@@ -163,7 +190,7 @@ app.get("/allUsers",async(req,res)=>{
 
 app.put("/user", async (req, res) => {
   const userdata = req.body;
-console.log(userdata)
+
   if(!userdata.email) return
   const email = userdata?.email;
   
