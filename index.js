@@ -32,12 +32,12 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
   }
@@ -52,7 +52,7 @@ const userCollection = client.db("DevForum").collection("users");
 
 app.get("/post/:id", async (req, res) => {
   const id = req.params.id;
-  console.log(id);
+
   const query = { _id: new ObjectId(id) };
   const result = await PostCollection.findOne(query);
 
@@ -92,25 +92,6 @@ app.post('/addpost',async(req,res)=>{
 
 let fallbackTo = "openai"; // or other
 
-app.post("/ask-gemini", async (req, res) => {
-  const { question } = req.body;
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-    const result = await model.generateContent(question);
-    const answer = result.response.text();
-    res.send({ answer });
-  } catch (err) {
-    console.error(err);
-
-    // fallback to OpenAI if rate limited
-    if (fallbackTo === "openai") {
-      // use OpenAI Node SDK here
-      res.send({ answer: "Fallback: Sorry, Gemini is overloaded, please try again later!" });
-    } else {
-      res.status(500).send({ answer: "All AI services unavailable." });
-    }
-  }
-});
 
 
 app.get('/posts', async (req, res) => {
@@ -303,7 +284,7 @@ app.post("/create-payment-intent", async (req, res) => {
 //
 app.patch('/make-gold-member/:email', async (req, res) => {
   const { email } = req.params;
-  console.log('Upgrading subscription status for:', email);
+ 
 
   try {
     const query = { email };
@@ -325,7 +306,7 @@ app.patch('/make-gold-member/:email', async (req, res) => {
 });
 
 
-
+//vote count functionalty Done
 app.post('/votecount/:id', async (req, res) => {
     const postId = req.params.id;
     const { vote, user } = req.body;
@@ -390,11 +371,32 @@ app.post('/votecount/:id', async (req, res) => {
   });
 
 
+//ai implement
 
+app.post("/ask-gemini", async (req, res) => {
+  const { question } = req.body;
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const result = await model.generateContent(question);
+    const answer = result.response.text();
+    res.send({ answer });
+  } catch (err) {
+    console.error(err);
 
-
-
-
-app.listen(port, () => {
-  console.log(`dev server is running port:${port}`);
+    // fallback to OpenAI if rate limited
+    if (fallbackTo === "openai") {
+      // use OpenAI Node SDK here
+      res.send({ answer: "Fallback: Sorry, Gemini is overloaded, please try again later!" });
+    } else {
+      res.status(500).send({ answer: "All AI services unavailable." });
+    }
+  }
 });
+
+
+module.exports = app;
+
+
+
+
+
