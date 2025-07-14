@@ -59,6 +59,8 @@ app.get("/post/:id", async (req, res) => {
   res.send(result);
 });
 
+//update post
+
 app.patch("/comment/:id", async (req, res) => {
   const id = req.params.id;
   const comment = req.body;
@@ -78,9 +80,9 @@ app.patch("/comment/:id", async (req, res) => {
   }
 });
 
-//increment and decrement
 
 
+//Add post
 
 app.post('/addpost',async(req,res)=>{
   const postdata=req.body
@@ -199,7 +201,7 @@ const email=req.params.email
 
 
 
-
+//user posting data
 
 app.get('/myPost/:email',async(req,res)=>{
 const email=req.params.email
@@ -281,7 +283,8 @@ app.post("/create-payment-intent", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-//
+
+//Membership functionlty
 app.patch('/make-gold-member/:email', async (req, res) => {
   const { email } = req.params;
  
